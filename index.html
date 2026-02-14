@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雲端汽車管家</title>
+    <style>
+        :root { --p: #1a73e8; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h2 { color: var(--p); text-align: center; }
+        label { display: block; margin: 15px 0 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn { width: 100%; padding: 15px; background: var(--p); color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        .status { text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🚗 雲端數據輸入</h2>
+    
+    <label>日期</label>
+    <input type="date" id="date">
+
+    <label>類別</label>
+    <select id="category" onchange="toggleFields()">
+        <option value="fuel">⛽ 加油</option>
+        <option value="maint">🛠️ 維修/保養</option>
+    </select>
+
+    <label>目前總里程 (Km)</label>
+    <input type="number" id="km" placeholder="例如: 50200">
+
+    <div id="fuelDiv">
+        <label>加油公升數 (L)</label>
+        <input type="number" id="amount" step="0.01">
+    </div>
+
+    <div id="maintDiv" style="display:none;">
+        <label>保養項目</label>
+        <input type="text" id="maintName" placeholder="如: 換機油">
+    </div>
+
+    <label>支出金額 ($)</label>
+    <input type="number" id="cost">
+
+    <button class="btn" onclick="uploadData()">儲存並上傳至雲端</button>
+    <div id="status" class="status">等待輸入...</div>
+</div>
+
+<script>
+    // 預設今天日期
+    document.getElementById('date').valueAsDate = new Date();
+
+    function toggleFields() {
+        const cat = document.getElementById('category').value;
+        document.getElementById('fuelDiv').style.display = (cat === 'fuel') ? 'block' : 'none';
+        document.getElementById('maintDiv').style.display = (cat === 'maint') ? 'block' : 'none';
+    }
+
+    async function uploadData() {
+        // ⚠️ 請在此處貼上你在第二階段獲得的 Google 部署網址
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrLQ1a7QBcfy3oxFhU4djEewSY2ev7wocq1-A0vRWI3g9pIutv4Nb-uZhmbqIUoRSL/exec";
+
+        const data = {
+            date: document.getElementById('date').value,
+            category: document.getElementById('category').value,
+            km: document.getElementById('km').value,
+            amount: document.getElementById('amount').value,
+            cost: document.getElementById('cost').value,
+            name: (document.getElementById('category').value === 'fuel') ? '加油' : document.getElementById('maintName').value
+        };
+
+        if (!data.km || !data.cost) {
+            alert("請完整輸入里程與金額！");
+            return;
+        }
+
+        const status = document.getElementById('status');
+        status.innerText = "🚀 正在上傳至 Google Sheet...";
+
+        try {
+            // 使用 no-cors 模式發送
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            status.innerText = "✅ 已成功記錄在雲端！";
+            alert("數據已自動上傳！");
+            // 清除欄位
+            document.getElementById('km').value = "";
+            document.getElementById('amount').value = "";
+            document.getElementById('cost').value = "";
+        } catch (e) {
+            status.innerText = "❌ 錯誤：" + e;
+        }
+    }
+</script>
+
+</body>
+</html>
