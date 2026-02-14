@@ -3,42 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>雲端汽車管家 V5</title>
+    <title>我的愛車 V6</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --p: #1a73e8; --bg: #f0f2f5; }
+        :root { --primary: #1976d2; --bg: #f5f5f5; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 15px; margin: 0; }
-        .card { background: white; padding: 18px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 16px; }
-        h2 { color: #333; text-align: center; margin: 0 0 15px 0; font-size: 1.1rem; }
-        
-        /* 輸入框樣式 */
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        h2 { color: #333; margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; }
         label { display: block; margin: 10px 0 5px; font-weight: 600; font-size: 13px; color: #555; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; background: #fff; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+        .btn:disabled { background: #ccc; }
         
-        .btn { width: 100%; padding: 14px; background: var(--p); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; transition: 0.2s; }
-        .btn:active { opacity: 0.8; }
+        /* 統計區塊 */
+        .stats-box { text-align: center; color: #d32f2f; font-weight: bold; margin-top: 10px; font-size: 14px; }
         
         /* 列表樣式 */
-        .log-list { max-height: 350px; overflow-y: auto; }
-        .log-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .log-item { padding: 12px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .log-left { display: flex; flex-direction: column; }
-        .log-date { font-size: 12px; color: #888; margin-bottom: 3px; }
-        .log-title { font-weight: bold; font-size: 15px; color: #333; }
-        .log-right { text-align: right; }
-        .log-cost { color: #d93025; font-weight: bold; font-size: 15px; }
-        .log-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-top: 4px; display: inline-block; }
-        .tag-fuel { background: #e8f0fe; color: #1a73e8; }
-        .tag-maint { background: #fef7e0; color: #b06000; }
-
-        /* 統計摘要 */
-        .stats-box { background: #fff0f0; color: #c0392b; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 14px; margin-top: 10px; }
+        .log-date { font-size: 12px; color: #888; }
+        .log-title { font-weight: bold; font-size: 15px; }
+        .log-cost { color: #d32f2f; font-weight: bold; }
+        .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-top: 3px; display: inline-block; background: #e3f2fd; color: #1976d2; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <canvas id="fuelChart" style="height: 200px; width: 100%;"></canvas>
-    <div id="monthStats" class="stats-box">載入數據中...</div>
+    <div id="monthStats" class="stats-box">載入中...</div>
 </div>
 
 <div class="card">
@@ -58,10 +51,16 @@
         </div>
     </div>
 
-    <div id="fuelDiv"><label>公升 (L)</label><input type="number" id="amount" step="0.01" inputmode="decimal"></div>
-    <div id="maintDiv" style="display:none;"><label>項目名稱</label><input type="text" id="maintName"></div>
+    <div id="fuelDiv">
+        <label>入油量 (L)</label>
+        <input type="number" id="amount" step="0.01" inputmode="decimal">
+    </div>
+    <div id="maintDiv" style="display:none;">
+        <label>項目名稱</label>
+        <input type="text" id="maintName">
+    </div>
     
-    <label>金額 ($)</label>
+    <label>支出金額 ($)</label>
     <input type="number" id="cost" inputmode="numeric">
     
     <button class="btn" id="saveBtn" onclick="uploadData()">儲存並同步</button>
@@ -69,20 +68,20 @@
 
 <div class="card">
     <h2>🔍 歷史紀錄</h2>
-    <input type="text" id="searchInput" placeholder="搜尋日期、項目..." onkeyup="filterLogs()" style="margin-bottom:10px;">
-    <div id="logList" class="log-list"></div>
+    <input type="text" id="searchInput" placeholder="搜尋日期或項目..." onkeyup="filterLogs()" style="margin-bottom:10px;">
+    <div id="logList"></div>
 </div>
 
 <script>
-    // ==========================================
-    // ⚠️ 請在此貼上新的 GAS 網址
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxdVhe8tgT0Q_biHC7tiZItp6lfy2VQBzStc7i3jdgJQQsRTicSnG5mvfnbGkDPvjbp/exec"; 
-    // ==========================================
+    // ⚠️ 請填入您的 Web App URL
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDMf6QwzXaNHP2iKWd0gAlOhGsI_eGhT1U1F8Vvo_adZ94AXfQW9gsG4d7VauNBBtE/exec"; 
 
     let allLogs = [];
     let myChart = null;
 
     document.getElementById('date').valueAsDate = new Date();
+    
+    // 啟動時讀取數據
     window.onload = loadData;
 
     function toggleFields() {
@@ -94,39 +93,43 @@
     async function loadData() {
         try {
             const res = await fetch(SCRIPT_URL);
-            allLogs = await res.json();
+            const data = await res.json();
+            
+            // 這裡將資料反轉：讓最新的排在最上面 (給列表用)
+            allLogs = data.reverse(); 
             
             renderList(allLogs);
-            renderChart(allLogs);
+            renderChart(allLogs); // 圖表函數內部會再處理順序
             updateMonthStats(allLogs);
         } catch (e) {
             console.error(e);
-            document.getElementById('monthStats').innerText = "無法連接雲端";
+            document.getElementById('monthStats').innerText = "連線失敗";
         }
     }
 
-    // 顯示本月統計 (取最新一筆資料的 monthlyTotal)
     function updateMonthStats(data) {
         if (data.length > 0) {
-            // 因為列表是新到舊，所以 data[0] 就是最新的一筆
-            const latest = data[0]; 
+            // 因為 allLogs 已經反轉為最新在 index 0
+            // 直接讀取最新一筆的 monthlyTotal (這是後台算好的結果)
+            const latest = data[0];
             document.getElementById('monthStats').innerText = 
                 `📅 ${latest.date.substring(0,7)} 累計支出：$${latest.monthlyTotal}`;
         } else {
-            document.getElementById('monthStats').innerText = "尚無紀錄";
+            document.getElementById('monthStats').innerText = "尚無資料";
         }
     }
 
-    // 渲染圖表 (修復：將資料反轉回 舊->新)
     function renderChart(data) {
         const ctx = document.getElementById('fuelChart').getContext('2d');
         
-        // 1. 複製一份數據並反轉 (變成 時間由舊到新)
-        // 2. 過濾出有 KPL 油耗數據的
-        const chartData = [...data].reverse().filter(d => d.kpl && d.kpl !== "");
+        // 1. 複製資料並反轉回「舊 -> 新」 (給圖表時間軸用)
+        const chartData = [...data].reverse();
+        
+        // 2. 只抓取有油耗 (kpl) 的數據
+        const fuelLogs = chartData.filter(d => d.kpl && d.kpl !== "");
 
-        const labels = chartData.map(d => d.date.substring(5)); // 取 MM-DD
-        const values = chartData.map(d => d.kpl);
+        const labels = fuelLogs.map(d => d.date.substring(5)); // 取 MM-DD
+        const values = fuelLogs.map(d => d.kpl);
 
         if (myChart) myChart.destroy();
 
@@ -135,13 +138,12 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: '油耗 (Km/L)',
+                    label: 'Km/L',
                     data: values,
-                    borderColor: '#1a73e8',
-                    backgroundColor: 'rgba(26, 115, 232, 0.1)',
-                    borderWidth: 2,
+                    borderColor: '#1976d2',
+                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
                     fill: true,
-                    tension: 0.3
+                    tension: 0.2
                 }]
             },
             options: {
@@ -153,32 +155,25 @@
         });
     }
 
-    // 渲染列表 (保持 新->舊)
     function renderList(data) {
         const list = document.getElementById('logList');
         list.innerHTML = "";
-        
-        if (data.length === 0) {
-            list.innerHTML = "<div style='text-align:center; padding:20px; color:#999;'>無符合資料</div>";
-            return;
-        }
+        if (data.length === 0) return list.innerHTML = "<div style='text-align:center;color:#999;padding:10px;'>無資料</div>";
 
         data.forEach(log => {
             const isFuel = log.category === '加油';
             const title = isFuel ? '⛽ 加油' : `🛠️ ${log.name}`;
-            const tagClass = isFuel ? 'tag-fuel' : 'tag-maint';
-            const subInfo = isFuel ? `${log.kpl} Km/L` : '';
+            const sub = isFuel ? `${log.kpl} Km/L` : '';
             
             list.innerHTML += `
                 <div class="log-item">
                     <div class="log-left">
                         <span class="log-date">${log.date}</span>
                         <span class="log-title">${title}</span>
-                        ${subInfo ? `<span class="log-tag ${tagClass}">${subInfo}</span>` : ''}
+                        ${sub ? `<span class="tag">${sub}</span>` : ''}
                     </div>
                     <div class="log-right">
                         <div class="log-cost">$${log.cost}</div>
-                        <div style="font-size:12px; color:#aaa;">${log.km} km</div>
                     </div>
                 </div>`;
         });
@@ -187,9 +182,7 @@
     function filterLogs() {
         const key = document.getElementById('searchInput').value.toLowerCase();
         const filtered = allLogs.filter(l => 
-            l.date.includes(key) || 
-            l.category.includes(key) || 
-            l.name.toLowerCase().includes(key)
+            l.date.includes(key) || l.category.includes(key) || l.name.toLowerCase().includes(key)
         );
         renderList(filtered);
     }
@@ -200,15 +193,15 @@
             date: document.getElementById('date').value,
             category: document.getElementById('category').value,
             km: document.getElementById('km').value,
-            amount: document.getElementById('amount').value,
-            cost: document.getElementById('cost').value,
+            amount: document.getElementById('amount').value, // E欄
+            cost: document.getElementById('cost').value,     // F欄
             name: document.getElementById('maintName').value
         };
 
         if(!data.km || !data.cost) return alert("請輸入完整資料");
 
         btn.disabled = true;
-        btn.innerText = "⏳ 處理中...";
+        btn.innerText = "⏳ 儲存中...";
 
         await fetch(SCRIPT_URL, {
             method: 'POST',
@@ -216,16 +209,14 @@
             body: JSON.stringify(data)
         });
 
-        alert("✅ 儲存成功！");
+        alert("✅ 成功！");
         
-        // 清空並重整
         document.getElementById('cost').value = "";
         document.getElementById('amount').value = "";
         btn.innerText = "儲存並同步";
         btn.disabled = false;
         
-        // 延遲 1.5 秒讓 Google 寫入完成後再讀取
-        setTimeout(loadData, 1500);
+        setTimeout(loadData, 1500); // 稍等一下再讀取
     }
 </script>
 </body>
