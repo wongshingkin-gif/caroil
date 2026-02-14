@@ -3,55 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>雲端汽車管家</title>
+    <title>雲端汽車管家 PRO</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --p: #1a73e8; }
-        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        h2 { color: var(--p); text-align: center; }
-        label { display: block; margin: 15px 0 5px; font-weight: bold; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn { width: 100%; padding: 15px; background: var(--p); color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-        .status { text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        h2 { color: var(--p); text-align: center; margin-top: 0; font-size: 1.2rem; }
+        label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn { width: 100%; padding: 14px; background: var(--p); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+        .status { text-align: center; margin-top: 10px; color: #666; font-size: 12px; }
+        .chart-container { position: relative; height: 200px; width: 100%; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>🚗 雲端數據輸入</h2>
-    
+    <h2>📈 油耗趨勢分析 (Km/L)</h2>
+    <div class="chart-container">
+        <canvas id="fuelChart"></canvas>
+    </div>
+    <div id="summary" style="text-align:center; font-size: 14px; margin-top: 10px; font-weight: bold; color: #d93025;"></div>
+</div>
+
+<div class="card">
+    <h2>🚗 數據輸入</h2>
     <label>日期</label>
     <input type="date" id="date">
-
     <label>類別</label>
     <select id="category" onchange="toggleFields()">
         <option value="fuel">⛽ 加油</option>
         <option value="maint">🛠️ 維修/保養</option>
     </select>
-
-    <label>目前總里程 (Km)</label>
-    <input type="number" id="km" placeholder="例如: 50200">
-
-    <div id="fuelDiv">
-        <label>加油公升數 (L)</label>
-        <input type="number" id="amount" step="0.01">
-    </div>
-
-    <div id="maintDiv" style="display:none;">
-        <label>保養項目</label>
-        <input type="text" id="maintName" placeholder="如: 換機油">
-    </div>
-
-    <label>支出金額 ($)</label>
-    <input type="number" id="cost">
-
-    <button class="btn" onclick="uploadData()">儲存並上傳至雲端</button>
-    <div id="status" class="status">等待輸入...</div>
+    <label>總里程 (Km)</label>
+    <input type="number" id="km" inputmode="numeric">
+    <div id="fuelDiv"><label>公升 (L)</label><input type="number" id="amount" step="0.01" inputmode="decimal"></div>
+    <div id="maintDiv" style="display:none;"><label>項目</label><input type="text" id="maintName"></div>
+    <label>金額 ($)</label>
+    <input type="number" id="cost" inputmode="numeric">
+    <button class="btn" onclick="uploadData()">儲存並更新圖表</button>
+    <div id="status" class="status">正在載入雲端數據...</div>
 </div>
 
 <script>
-    // 預設今天日期
+    const SCRIPT_URL = "在此貼上你的GAS網址";
+    let myChart;
+
     document.getElementById('date').valueAsDate = new Date();
+
+    // 頁面載入時先抓取一次圖表數據
+    window.onload = loadChartData;
 
     function toggleFields() {
         const cat = document.getElementById('category').value;
@@ -59,10 +61,50 @@
         document.getElementById('maintDiv').style.display = (cat === 'maint') ? 'block' : 'none';
     }
 
-    async function uploadData() {
-        // ⚠️ 請在此處貼上你在第二階段獲得的 Google 部署網址
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrLQ1a7QBcfy3oxFhU4djEewSY2ev7wocq1-A0vRWI3g9pIutv4Nb-uZhmbqIUoRSL/exec";
+    async function loadChartData() {
+        try {
+            const response = await fetch(SCRIPT_URL);
+            const data = await response.json();
+            if (data.length === 0) return;
 
+            // 處理圖表數據：過濾出有油耗紀錄的
+            const fuelLogs = data.filter(d => d.kpl !== "");
+            const labels = fuelLogs.map(d => d.date.split('T')[0].substring(5)); // 顯示 MM-DD
+            const values = fuelLogs.map(d => d.kpl);
+
+            // 更新月開支文字
+            const lastEntry = data[data.length - 1];
+            document.getElementById('summary').innerText = `本月累計支出：$${lastEntry.monthlyTotal}`;
+
+            const ctx = document.getElementById('fuelChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Km/L',
+                        data: values,
+                        borderColor: '#1a73e8',
+                        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+            document.getElementById('status').innerText = "雲端同步已就緒";
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function uploadData() {
         const data = {
             date: document.getElementById('date').value,
             category: document.getElementById('category').value,
@@ -72,35 +114,22 @@
             name: (document.getElementById('category').value === 'fuel') ? '加油' : document.getElementById('maintName').value
         };
 
-        if (!data.km || !data.cost) {
-            alert("請完整輸入里程與金額！");
-            return;
-        }
+        if (!data.km || !data.cost) return alert("請完整輸入！");
 
-        const status = document.getElementById('status');
-        status.innerText = "🚀 正在上傳至 Google Sheet...";
+        document.getElementById('status').innerText = "🚀 同步中...";
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify(data)
+        });
 
-        try {
-            // 使用 no-cors 模式發送
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            status.innerText = "✅ 已成功記錄在雲端！";
-            alert("數據已自動上傳！");
-            // 清除欄位
-            document.getElementById('km').value = "";
-            document.getElementById('amount').value = "";
-            document.getElementById('cost').value = "";
-        } catch (e) {
-            status.innerText = "❌ 錯誤：" + e;
-        }
+        alert("已存入雲端！");
+        // 重新載入圖表以顯示最新數據
+        setTimeout(loadChartData, 2000); 
+        document.getElementById('km').value = "";
+        document.getElementById('amount').value = "";
+        document.getElementById('cost').value = "";
     }
 </script>
-
 </body>
 </html>
