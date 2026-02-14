@@ -8,14 +8,15 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://github.com/wongshingkin-gif/caroil/blob/ada5c33ce9078002dcd4b64f67285f4085de3631/Gemini_Generated_Image_ikaqyzikaqyzikaq.png",
+      "src": "Gemini_Generated_Image_ikaqyzikaqyzikaq.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://github.com/wongshingkin-gif/caroil/blob/ada5c33ce9078002dcd4b64f67285f4085de3631/Gemini_Generated_Image_ikaqyzikaqyzikaq.png",
+      "src": "Gemini_Generated_Image_ikaqyzikaqyzikaq.png",
       "sizes": "512x512",
       "type": "image/png"
     }
   ]
+
 }
